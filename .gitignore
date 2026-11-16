@@ -1,2 +1,4 @@
 contacts.json
 .idea/
+.venv/
+expenses.csv
