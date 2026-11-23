@@ -1,4 +1,3 @@
-contacts.json
-.idea/
 .venv/
-expenses.csv
+__pycache__/
+.pytest_cache/
