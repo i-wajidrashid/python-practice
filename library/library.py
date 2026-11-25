@@ -1,6 +1,8 @@
+from dataclasses import dataclass
 from datetime import date, timedelta
 import json
 from pathlib import Path
+from typing import Any, ClassVar
 import pytest
 
 
@@ -32,14 +34,14 @@ class InvalidReturnDateError(LibraryError):
     pass
 
 
+@dataclass
 class Book:
-    def __init__(self, book_id: str, title: str, author: str, is_borrowed: bool = False):
-        self.book_id = book_id
-        self.title = title
-        self.author = author
-        self.is_borrowed = is_borrowed
+    book_id: str
+    title: str
+    author: str
+    is_borrowed: bool = False
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "book_id": self.book_id,
             "title": self.title,
@@ -48,29 +50,31 @@ class Book:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Book":
+    def from_dict(cls, data: dict[str, Any]) -> "Book":
         return cls(
-            book_id=data["book_id"],
-            title=data["title"],
-            author=data["author"],
-            is_borrowed=data.get("is_borrowed", False),
+            book_id=str(data["book_id"]),
+            title=str(data["title"]),
+            author=str(data["author"]),
+            is_borrowed=bool(data.get("is_borrowed", False)),
         )
 
 
+@dataclass
 class Member:
-    max_books = 3
+    member_id: str
+    name: str
+    fines: float = 0.0
+    max_books: ClassVar[int] = 3
 
-    def __init__(self, member_id: str, name: str, fines: float = 0.0):
-        self.member_id = member_id
-        self.name = name
-        self.fines = float(fines)
+    def __post_init__(self) -> None:
+        self.fines = float(self.fines)
 
     def add_fine(self, amount: float) -> None:
         if amount < 0:
             raise ValueError("Fine amount cannot be negative.")
         self.fines += float(amount)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "member_id": self.member_id,
             "name": self.name,
@@ -79,26 +83,28 @@ class Member:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Member":
-        member_types = {
+    def from_dict(cls, data: dict[str, Any]) -> "Member":
+        member_types: dict[str, type[Member]] = {
             "Member": Member,
             "StudentMember": StudentMember,
             "PremiumMember": PremiumMember,
         }
-        target_cls = member_types.get(data.get("member_type", "Member"), Member)
+        target_cls = member_types.get(str(data.get("member_type", "Member")), Member)
         return target_cls(
-            member_id=data["member_id"],
-            name=data["name"],
-            fines=data.get("fines", 0.0),
+            member_id=str(data["member_id"]),
+            name=str(data["name"]),
+            fines=float(data.get("fines", 0.0)),
         )
 
 
+@dataclass
 class StudentMember(Member):
-    max_books = 2
+    max_books: ClassVar[int] = 2
 
 
+@dataclass
 class PremiumMember(Member):
-    max_books = 5
+    max_books: ClassVar[int] = 5
 
 
 class Loan:
@@ -109,12 +115,12 @@ class Loan:
         borrow_date: date,
         due_date: date,
         return_date: date | None = None,
-    ):
-        self.book_id = book_id
-        self.member_id = member_id
-        self.borrow_date = borrow_date
-        self.due_date = due_date
-        self.return_date = return_date
+    ) -> None:
+        self.book_id: str = book_id
+        self.member_id: str = member_id
+        self.borrow_date: date = borrow_date
+        self.due_date: date = due_date
+        self.return_date: date | None = return_date
 
     @property
     def is_active(self) -> bool:
@@ -126,7 +132,7 @@ class Loan:
             return 0
         return (check_date - self.due_date).days
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "book_id": self.book_id,
             "member_id": self.member_id,
@@ -136,24 +142,25 @@ class Loan:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Loan":
+    def from_dict(cls, data: dict[str, Any]) -> "Loan":
+        raw_return_date = data.get("return_date")
         return cls(
-            book_id=data["book_id"],
-            member_id=data["member_id"],
-            borrow_date=date.fromisoformat(data["borrow_date"]),
-            due_date=date.fromisoformat(data["due_date"]),
+            book_id=str(data["book_id"]),
+            member_id=str(data["member_id"]),
+            borrow_date=date.fromisoformat(str(data["borrow_date"])),
+            due_date=date.fromisoformat(str(data["due_date"])),
             return_date=(
-                date.fromisoformat(data["return_date"])
-                if data.get("return_date")
+                date.fromisoformat(str(raw_return_date))
+                if raw_return_date
                 else None
             ),
         )
 
 
 class Library:
-    def __init__(self, daily_fine_rate: float = 2.0, loan_period_days: int = 14):
-        self.daily_fine_rate = float(daily_fine_rate)
-        self.loan_period_days = int(loan_period_days)
+    def __init__(self, daily_fine_rate: float = 2.0, loan_period_days: int = 14) -> None:
+        self.daily_fine_rate: float = float(daily_fine_rate)
+        self.loan_period_days: int = int(loan_period_days)
         self.books: dict[str, Book] = {}
         self.members: dict[str, Member] = {}
         self.loans: list[Loan] = []
@@ -240,7 +247,7 @@ class Library:
 
         return fine
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "daily_fine_rate": self.daily_fine_rate,
             "loan_period_days": self.loan_period_days,
@@ -250,10 +257,10 @@ class Library:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Library":
+    def from_dict(cls, data: dict[str, Any]) -> "Library":
         library = cls(
-            daily_fine_rate=data.get("daily_fine_rate", 2.0),
-            loan_period_days=data.get("loan_period_days", 14),
+            daily_fine_rate=float(data.get("daily_fine_rate", 2.0)),
+            loan_period_days=int(data.get("loan_period_days", 14)),
         )
         for book_data in data.get("books", []):
             library.add_book(Book.from_dict(book_data))
@@ -272,7 +279,7 @@ class Library:
     def load_from_json(cls, filepath: str | Path) -> "Library":
         path = Path(filepath)
         with path.open("r", encoding="utf-8") as file:
-            data = json.load(file)
+            data: dict[str, Any] = json.load(file)
         return cls.from_dict(data)
 
 
